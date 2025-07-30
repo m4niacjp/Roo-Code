@@ -245,8 +245,8 @@ describe("TelemetryRetryManager", () => {
 
 			mockQueue.getEventsForRetry.mockResolvedValue(events)
 
-			// First fail, then succeed
-			sendEventMock.mockRejectedValueOnce(new Error("Network error"))
+			// Mock all sends to fail initially (including connection check)
+			sendEventMock.mockRejectedValue(new Error("Network error"))
 
 			retryManager.start()
 
@@ -264,7 +264,7 @@ describe("TelemetryRetryManager", () => {
 			mockQueue.updateEventAfterRetry.mockClear()
 			sendEventMock.mockClear()
 
-			// Now succeed - mock the send to succeed this time
+			// Now succeed - mock the send to succeed this time (including connection check)
 			sendEventMock.mockResolvedValue(undefined)
 
 			// Set up the queue to return the same event again
@@ -277,8 +277,10 @@ describe("TelemetryRetryManager", () => {
 				expect(mockQueue.updateEventAfterRetry).toHaveBeenCalled()
 			})
 
-			// Now check that connection status was updated
-			expect(connectionStatusCallback).toHaveBeenCalledWith(true)
+			// Wait for connection status callback to be called
+			await vi.waitFor(() => {
+				expect(connectionStatusCallback).toHaveBeenCalledWith(true)
+			})
 		})
 
 		it("should prune failed events", async () => {
