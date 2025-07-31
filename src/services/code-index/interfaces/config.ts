@@ -18,6 +18,10 @@ export interface CodeIndexConfig {
 	qdrantApiKey?: string
 	searchMinScore?: number
 	searchMaxResults?: number
+	// Reranking configuration
+	rerankingEnabled?: boolean
+	rerankingTopK?: number
+	rerankingInitialResults?: number
 }
 
 /**
