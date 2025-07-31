@@ -2,7 +2,13 @@ import { ApiHandlerOptions } from "../../shared/api"
 import { ContextProxy } from "../../core/config/ContextProxy"
 import { EmbedderProvider } from "./interfaces/manager"
 import { CodeIndexConfig, PreviousConfigSnapshot } from "./interfaces/config"
-import { DEFAULT_SEARCH_MIN_SCORE, DEFAULT_MAX_SEARCH_RESULTS } from "./constants"
+import {
+	DEFAULT_SEARCH_MIN_SCORE,
+	DEFAULT_MAX_SEARCH_RESULTS,
+	DEFAULT_RERANKING_ENABLED,
+	DEFAULT_RERANKING_TOP_K,
+	DEFAULT_RERANKING_INITIAL_RESULTS,
+} from "./constants"
 import { getDefaultModelId, getModelDimension, getModelScoreThreshold } from "../../shared/embeddingModels"
 
 /**
@@ -23,6 +29,10 @@ export class CodeIndexConfigManager {
 	private qdrantApiKey?: string
 	private searchMinScore?: number
 	private searchMaxResults?: number
+	// Reranking configuration
+	private rerankingEnabled?: boolean
+	private rerankingTopK?: number
+	private rerankingInitialResults?: number
 
 	constructor(private readonly contextProxy: ContextProxy) {
 		// Initialize with current configuration to avoid false restart triggers
@@ -60,6 +70,9 @@ export class CodeIndexConfigManager {
 			codebaseIndexEmbedderModelId,
 			codebaseIndexSearchMinScore,
 			codebaseIndexSearchMaxResults,
+			codebaseIndexRerankingEnabled,
+			codebaseIndexRerankingTopK,
+			codebaseIndexRerankingInitialResults,
 		} = codebaseIndexConfig
 
 		const openAiKey = this.contextProxy?.getSecret("codeIndexOpenAiKey") ?? ""
@@ -76,6 +89,10 @@ export class CodeIndexConfigManager {
 		this.qdrantApiKey = qdrantApiKey ?? ""
 		this.searchMinScore = codebaseIndexSearchMinScore
 		this.searchMaxResults = codebaseIndexSearchMaxResults
+		// Set reranking configuration
+		this.rerankingEnabled = codebaseIndexRerankingEnabled
+		this.rerankingTopK = codebaseIndexRerankingTopK
+		this.rerankingInitialResults = codebaseIndexRerankingInitialResults
 
 		// Validate and set model dimension
 		const rawDimension = codebaseIndexConfig.codebaseIndexEmbedderModelDimension
@@ -379,6 +396,10 @@ export class CodeIndexConfigManager {
 			qdrantApiKey: this.qdrantApiKey,
 			searchMinScore: this.currentSearchMinScore,
 			searchMaxResults: this.currentSearchMaxResults,
+			// Reranking configuration
+			rerankingEnabled: this.currentRerankingEnabled,
+			rerankingTopK: this.currentRerankingTopK,
+			rerankingInitialResults: this.currentRerankingInitialResults,
 		}
 	}
 
@@ -459,5 +480,29 @@ export class CodeIndexConfigManager {
 	 */
 	public get currentSearchMaxResults(): number {
 		return this.searchMaxResults ?? DEFAULT_MAX_SEARCH_RESULTS
+	}
+
+	/**
+	 * Gets whether reranking is enabled.
+	 * Returns user setting if configured, otherwise returns default.
+	 */
+	public get currentRerankingEnabled(): boolean {
+		return this.rerankingEnabled ?? DEFAULT_RERANKING_ENABLED
+	}
+
+	/**
+	 * Gets the configured top-K results for reranking.
+	 * Returns user setting if configured, otherwise returns default.
+	 */
+	public get currentRerankingTopK(): number {
+		return this.rerankingTopK ?? DEFAULT_RERANKING_TOP_K
+	}
+
+	/**
+	 * Gets the configured initial results count for reranking.
+	 * Returns user setting if configured, otherwise returns default.
+	 */
+	public get currentRerankingInitialResults(): number {
+		return this.rerankingInitialResults ?? DEFAULT_RERANKING_INITIAL_RESULTS
 	}
 }

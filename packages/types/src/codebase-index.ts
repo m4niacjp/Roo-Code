@@ -12,6 +12,14 @@ export const CODEBASE_INDEX_DEFAULTS = {
 	MAX_SEARCH_SCORE: 1,
 	DEFAULT_SEARCH_MIN_SCORE: 0.4,
 	SEARCH_SCORE_STEP: 0.05,
+	// Reranking defaults
+	DEFAULT_RERANKING_ENABLED: false,
+	DEFAULT_RERANKING_TOP_K: 10,
+	DEFAULT_RERANKING_INITIAL_RESULTS: 50,
+	MIN_RERANKING_TOP_K: 5,
+	MAX_RERANKING_TOP_K: 100,
+	MIN_RERANKING_INITIAL_RESULTS: 20,
+	MAX_RERANKING_INITIAL_RESULTS: 200,
 } as const
 
 /**
@@ -30,6 +38,18 @@ export const codebaseIndexConfigSchema = z.object({
 		.number()
 		.min(CODEBASE_INDEX_DEFAULTS.MIN_SEARCH_RESULTS)
 		.max(CODEBASE_INDEX_DEFAULTS.MAX_SEARCH_RESULTS)
+		.optional(),
+	// Reranking configuration
+	codebaseIndexRerankingEnabled: z.boolean().optional(),
+	codebaseIndexRerankingTopK: z
+		.number()
+		.min(CODEBASE_INDEX_DEFAULTS.MIN_RERANKING_TOP_K)
+		.max(CODEBASE_INDEX_DEFAULTS.MAX_RERANKING_TOP_K)
+		.optional(),
+	codebaseIndexRerankingInitialResults: z
+		.number()
+		.min(CODEBASE_INDEX_DEFAULTS.MIN_RERANKING_INITIAL_RESULTS)
+		.max(CODEBASE_INDEX_DEFAULTS.MAX_RERANKING_INITIAL_RESULTS)
 		.optional(),
 	// OpenAI Compatible specific fields
 	codebaseIndexOpenAiCompatibleBaseUrl: z.string().optional(),

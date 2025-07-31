@@ -4,6 +4,7 @@ import { IEmbedder } from "./interfaces/embedder"
 import { IVectorStore } from "./interfaces/vector-store"
 import { CodeIndexConfigManager } from "./config-manager"
 import { CodeIndexStateManager } from "./state-manager"
+import { CodeIndexRerankingService } from "./reranking-service"
 import { TelemetryService } from "@roo-code/telemetry"
 import { TelemetryEventName } from "@roo-code/types"
 
@@ -11,12 +12,16 @@ import { TelemetryEventName } from "@roo-code/types"
  * Service responsible for searching the code index.
  */
 export class CodeIndexSearchService {
+	private readonly rerankingService: CodeIndexRerankingService
+
 	constructor(
 		private readonly configManager: CodeIndexConfigManager,
 		private readonly stateManager: CodeIndexStateManager,
 		private readonly embedder: IEmbedder,
 		private readonly vectorStore: IVectorStore,
-	) {}
+	) {
+		this.rerankingService = new CodeIndexRerankingService(this.embedder)
+	}
 
 	/**
 	 * Searches the code index for relevant content.
@@ -33,6 +38,9 @@ export class CodeIndexSearchService {
 
 		const minScore = this.configManager.currentSearchMinScore
 		const maxResults = this.configManager.currentSearchMaxResults
+		const rerankingEnabled = this.configManager.currentRerankingEnabled
+		const rerankingTopK = this.configManager.currentRerankingTopK
+		const rerankingInitialResults = this.configManager.currentRerankingInitialResults
 
 		const currentState = this.stateManager.getCurrentStatus().systemStatus
 		if (currentState !== "Indexed" && currentState !== "Indexing") {
@@ -54,9 +62,21 @@ export class CodeIndexSearchService {
 				normalizedPrefix = path.normalize(directoryPrefix)
 			}
 
-			// Perform search
-			const results = await this.vectorStore.search(vector, normalizedPrefix, minScore, maxResults)
-			return results
+			// Determine how many initial results to retrieve
+			const initialResultLimit = rerankingEnabled ? Math.max(rerankingInitialResults, rerankingTopK) : maxResults
+
+			// Perform initial search
+			const initialResults = await this.vectorStore.search(vector, normalizedPrefix, minScore, initialResultLimit)
+
+			// Apply reranking if enabled and conditions are met
+			if (rerankingEnabled && this.rerankingService.shouldRerank(initialResults)) {
+				console.log(`[CodeIndexSearchService] Applying reranking to ${initialResults.length} results`)
+				const rerankedResults = await this.rerankingService.rerankResults(query, initialResults, rerankingTopK)
+				return rerankedResults
+			}
+
+			// Return original results (potentially limited to maxResults for consistency)
+			return initialResults.slice(0, maxResults)
 		} catch (error) {
 			console.error("[CodeIndexSearchService] Error during search:", error)
 			this.stateManager.setSystemState("Error", `Search failed: ${(error as Error).message}`)

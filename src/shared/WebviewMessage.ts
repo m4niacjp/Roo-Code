@@ -263,6 +263,10 @@ export interface WebviewMessage {
 		codebaseIndexOpenAiCompatibleBaseUrl?: string
 		codebaseIndexSearchMaxResults?: number
 		codebaseIndexSearchMinScore?: number
+		// Reranking settings
+		codebaseIndexRerankingEnabled?: boolean
+		codebaseIndexRerankingTopK?: number
+		codebaseIndexRerankingInitialResults?: number
 
 		// Secret settings
 		codeIndexOpenAiKey?: string

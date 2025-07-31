@@ -62,6 +62,10 @@ interface LocalCodeIndexSettings {
 	codebaseIndexEmbedderModelDimension?: number // Generic dimension for all providers
 	codebaseIndexSearchMaxResults?: number
 	codebaseIndexSearchMinScore?: number
+	// Reranking settings
+	codebaseIndexRerankingEnabled?: boolean
+	codebaseIndexRerankingTopK?: number
+	codebaseIndexRerankingInitialResults?: number
 
 	// Secret settings (start empty, will be loaded separately)
 	codeIndexOpenAiKey?: string
@@ -174,6 +178,10 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 		codebaseIndexEmbedderModelDimension: undefined,
 		codebaseIndexSearchMaxResults: CODEBASE_INDEX_DEFAULTS.DEFAULT_SEARCH_RESULTS,
 		codebaseIndexSearchMinScore: CODEBASE_INDEX_DEFAULTS.DEFAULT_SEARCH_MIN_SCORE,
+		// Reranking defaults
+		codebaseIndexRerankingEnabled: CODEBASE_INDEX_DEFAULTS.DEFAULT_RERANKING_ENABLED,
+		codebaseIndexRerankingTopK: CODEBASE_INDEX_DEFAULTS.DEFAULT_RERANKING_TOP_K,
+		codebaseIndexRerankingInitialResults: CODEBASE_INDEX_DEFAULTS.DEFAULT_RERANKING_INITIAL_RESULTS,
 		codeIndexOpenAiKey: "",
 		codeIndexQdrantApiKey: "",
 		codebaseIndexOpenAiCompatibleBaseUrl: "",
@@ -208,6 +216,15 @@ export const CodeIndexPopover: React.FC<CodeIndexPopoverProps> = ({
 					codebaseIndexConfig.codebaseIndexSearchMaxResults ?? CODEBASE_INDEX_DEFAULTS.DEFAULT_SEARCH_RESULTS,
 				codebaseIndexSearchMinScore:
 					codebaseIndexConfig.codebaseIndexSearchMinScore ?? CODEBASE_INDEX_DEFAULTS.DEFAULT_SEARCH_MIN_SCORE,
+				// Reranking configuration
+				codebaseIndexRerankingEnabled:
+					codebaseIndexConfig.codebaseIndexRerankingEnabled ??
+					CODEBASE_INDEX_DEFAULTS.DEFAULT_RERANKING_ENABLED,
+				codebaseIndexRerankingTopK:
+					codebaseIndexConfig.codebaseIndexRerankingTopK ?? CODEBASE_INDEX_DEFAULTS.DEFAULT_RERANKING_TOP_K,
+				codebaseIndexRerankingInitialResults:
+					codebaseIndexConfig.codebaseIndexRerankingInitialResults ??
+					CODEBASE_INDEX_DEFAULTS.DEFAULT_RERANKING_INITIAL_RESULTS,
 				codeIndexOpenAiKey: "",
 				codeIndexQdrantApiKey: "",
 				codebaseIndexOpenAiCompatibleBaseUrl: codebaseIndexConfig.codebaseIndexOpenAiCompatibleBaseUrl || "",

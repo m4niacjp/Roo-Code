@@ -1,7 +1,7 @@
 import { ApiHandlerOptions } from "../../../shared/api"
 import { EmbedderInfo, EmbeddingResponse, IEmbedder } from "../interfaces"
 import { getModelQueryPrefix } from "../../../shared/embeddingModels"
-import { MAX_ITEM_TOKENS } from "../constants"
+import { MAX_ITEM_TOKENS, OLLAMA_DEFAULT_CONTEXT_SIZE, OLLAMA_MAX_BATCH_TOKENS } from "../constants"
 import { t } from "../../../i18n"
 import { withValidationErrorHandling, sanitizeErrorMessage } from "../shared/validation-helpers"
 import { TelemetryService } from "@roo-code/telemetry"
@@ -37,7 +37,6 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 	 */
 	async createEmbeddings(texts: string[], model?: string): Promise<EmbeddingResponse> {
 		const modelToUse = model || this.defaultModelId
-		const url = `${this.baseUrl}/api/embed` // Endpoint as specified
 
 		// Apply model-specific query prefix if required
 		const queryPrefix = getModelQueryPrefix("ollama", modelToUse)
@@ -64,10 +63,66 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 				})
 			: texts
 
-		try {
-			// Note: Standard Ollama API uses 'prompt' for single text, not 'input' for array.
-			// Implementing based on user's specific request structure.
+		const allEmbeddings: number[][] = []
+		const remainingTexts = [...processedTexts]
 
+		// Process texts in batches to avoid context size issues
+		while (remainingTexts.length > 0) {
+			const currentBatch: string[] = []
+			let currentBatchTokens = 0
+			const processedIndices: number[] = []
+
+			for (let i = 0; i < remainingTexts.length; i++) {
+				const text = remainingTexts[i]
+				const itemTokens = Math.ceil(text.length / 4)
+
+				if (itemTokens > MAX_ITEM_TOKENS) {
+					console.warn(
+						t("embeddings:textExceedsTokenLimit", {
+							index: i,
+							itemTokens,
+							maxTokens: MAX_ITEM_TOKENS,
+						}),
+					)
+					processedIndices.push(i)
+					continue
+				}
+
+				if (currentBatchTokens + itemTokens <= OLLAMA_MAX_BATCH_TOKENS) {
+					currentBatch.push(text)
+					currentBatchTokens += itemTokens
+					processedIndices.push(i)
+				} else {
+					break
+				}
+			}
+
+			// Remove processed items from remainingTexts (in reverse order to maintain correct indices)
+			for (let i = processedIndices.length - 1; i >= 0; i--) {
+				remainingTexts.splice(processedIndices[i], 1)
+			}
+
+			if (currentBatch.length > 0) {
+				const batchEmbeddings = await this._embedBatch(currentBatch, modelToUse)
+				allEmbeddings.push(...batchEmbeddings)
+			}
+		}
+
+		return {
+			embeddings: allEmbeddings,
+		}
+	}
+
+	/**
+	 * Helper method to handle a single batch of embeddings
+	 * @param batchTexts Array of texts to embed in this batch
+	 * @param model Model identifier to use
+	 * @returns Promise resolving to embeddings for this batch
+	 */
+	private async _embedBatch(batchTexts: string[], model: string): Promise<number[][]> {
+		const url = `${this.baseUrl}/api/embed`
+
+		try {
 			// Add timeout to prevent indefinite hanging
 			const controller = new AbortController()
 			const timeoutId = setTimeout(() => controller.abort(), OLLAMA_EMBEDDING_TIMEOUT_MS)
@@ -78,8 +133,11 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					model: modelToUse,
-					input: processedTexts, // Using 'input' as requested
+					model: model,
+					input: batchTexts,
+					options: {
+						num_ctx: OLLAMA_DEFAULT_CONTEXT_SIZE, // Set context to match model's training context
+					},
 				}),
 				signal: controller.signal,
 			})
@@ -109,19 +167,17 @@ export class CodeIndexOllamaEmbedder implements IEmbedder {
 				throw new Error(t("embeddings:ollama.invalidResponseStructure"))
 			}
 
-			return {
-				embeddings: embeddings,
-			}
+			return embeddings
 		} catch (error: any) {
 			// Capture telemetry before reformatting the error
 			TelemetryService.instance.captureEvent(TelemetryEventName.CODE_INDEX_ERROR, {
 				error: sanitizeErrorMessage(error instanceof Error ? error.message : String(error)),
 				stack: error instanceof Error ? sanitizeErrorMessage(error.stack || "") : undefined,
-				location: "OllamaEmbedder:createEmbeddings",
+				location: "OllamaEmbedder:_embedBatch",
 			})
 
 			// Log the original error for debugging purposes
-			console.error("Ollama embedding failed:", error)
+			console.error("Ollama embedding batch failed:", error)
 
 			// Handle specific error types with better messages
 			if (error.name === "AbortError") {
